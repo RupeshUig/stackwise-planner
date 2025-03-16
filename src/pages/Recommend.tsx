@@ -35,6 +35,16 @@ const Recommend = () => {
     }
   };
 
+  const handleKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTempApiKey(e.target.value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      saveApiKey();
+    }
+  };
+
   return (
     <Layout>
       <div className="min-h-screen bg-background pt-20 pb-24">
@@ -60,7 +70,7 @@ const Recommend = () => {
               </div>
             </div>
             
-            <ProjectForm />
+            <ProjectForm apiKey={apiKey} />
           </div>
         </div>
       </div>
@@ -79,10 +89,12 @@ const Recommend = () => {
               <Label htmlFor="api-key">API Key</Label>
               <Input
                 id="api-key"
-                type="password"
+                type="text"
                 placeholder="sk-..."
                 value={tempApiKey}
-                onChange={(e) => setTempApiKey(e.target.value)}
+                onChange={handleKeyChange}
+                onKeyDown={handleKeyDown}
+                autoComplete="off"
               />
             </div>
             <p className="text-sm text-muted-foreground">
