@@ -3,7 +3,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ModeToggle } from '@/components/ui/mode-toggle';
-import { BarChart3, LucideCompare, Layers, User, ChevronDown, Menu, X } from 'lucide-react';
+import { BarChart3, GitCompare, Layers, User, ChevronDown, Menu, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
