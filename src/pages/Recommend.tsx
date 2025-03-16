@@ -11,10 +11,10 @@ const Recommend = () => {
           <div className="max-w-5xl mx-auto space-y-12">
             <div className="text-center space-y-4">
               <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight">
-                Get Recommendations
+                AI-Powered Stack Recommendations
               </h1>
               <p className="text-xl text-foreground/70 max-w-2xl mx-auto">
-                Tell us about your project and we'll recommend the optimal technologies for your specific needs.
+                Our AI analyzes your project requirements and recommends the optimal technologies for your specific needs.
               </p>
             </div>
             

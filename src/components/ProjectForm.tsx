@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,8 +6,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Check, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
+import { Check, Sparkles, ArrowRight, RefreshCw, Key } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { getAIRecommendations } from '@/services/openai';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 type ProjectType = 'web' | 'mobile' | 'desktop' | 'backend' | 'fullstack';
 type TeamSize = 'solo' | 'small' | 'medium' | 'large' | 'enterprise';
@@ -21,6 +31,8 @@ interface RecommendationResult {
   alternatives: string[];
   reasoning: string;
 }
+
+const API_KEY_STORAGE_KEY = 'openai_api_key';
 
 const ProjectForm: React.FC = () => {
   const [projectName, setProjectName] = useState('');
@@ -37,8 +49,11 @@ const ProjectForm: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<RecommendationResult[] | null>(null);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem(API_KEY_STORAGE_KEY) || '');
+  const [tempApiKey, setTempApiKey] = useState('');
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  // Mock results - in a real app this would come from an AI backend
   const mockRecommendations: RecommendationResult[] = [
     {
       category: "Frontend Framework",
@@ -78,15 +93,55 @@ const ProjectForm: React.FC = () => {
     }
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const saveApiKey = () => {
+    if (tempApiKey.trim()) {
+      localStorage.setItem(API_KEY_STORAGE_KEY, tempApiKey.trim());
+      setApiKey(tempApiKey.trim());
+      setTempApiKey('');
+      toast.success("API Key saved successfully");
+      setShowApiKeyModal(false);
+    } else {
+      toast.error("Please enter a valid API key");
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
     
-    // Simulate API call for recommendations
-    setTimeout(() => {
-      setRecommendations(mockRecommendations);
+    if (!apiKey) {
+      setShowApiKeyModal(true);
       setIsLoading(false);
-    }, 1500);
+      return;
+    }
+    
+    try {
+      const requestParams = {
+        projectName,
+        projectType,
+        projectDescription,
+        teamSize,
+        budget,
+        timeFrame,
+        scalabilityImportance: scalabilityImportance[0],
+        learningCurve: learningCurve[0],
+        communitySupport,
+        enterpriseSupport,
+        openSource
+      };
+      
+      const aiRecommendations = await getAIRecommendations(requestParams, apiKey);
+      setRecommendations(aiRecommendations);
+      toast.success("AI recommendations generated successfully");
+    } catch (error) {
+      console.error('Error getting recommendations:', error);
+      setError(error instanceof Error ? error.message : 'Failed to get recommendations');
+      toast.error("Failed to get recommendations. Using fallback data instead.");
+      setRecommendations(mockRecommendations);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handleReset = () => {
@@ -102,6 +157,7 @@ const ProjectForm: React.FC = () => {
     setEnterpriseSupport(false);
     setOpenSource(true);
     setRecommendations(null);
+    setError(null);
   };
 
   const projectTypes: { value: ProjectType; label: string; description: string }[] = [
@@ -139,18 +195,34 @@ const ProjectForm: React.FC = () => {
       <div className="max-w-5xl mx-auto space-y-10">
         <div className="space-y-4 text-center">
           <div className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
-            Technology Recommendations
+            AI-Powered Technology Recommendations
           </div>
           <h2 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
             Find Your Ideal Tech Stack
           </h2>
           <p className="text-lg text-foreground/70 max-w-2xl mx-auto">
-            Answer a few questions about your project, and we'll recommend the optimal technologies based on your specific requirements.
+            Answer a few questions about your project, and our AI will recommend the optimal technologies based on your specific requirements.
           </p>
+          
+          <div className="flex justify-center mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowApiKeyModal(true)}
+              className="flex items-center"
+            >
+              <Key className="mr-2 h-4 w-4" />
+              {apiKey ? "Change API Key" : "Set OpenAI API Key"}
+            </Button>
+          </div>
         </div>
         
+        {error && (
+          <div className="rounded-md bg-destructive/15 p-4 text-destructive">
+            <p className="font-medium">Error: {error}</p>
+          </div>
+        )}
+        
         {recommendations ? (
-          // Results view
           <div className="space-y-8 animate-fade-in">
             <div className="flex flex-wrap justify-center gap-4">
               <Button 
@@ -184,7 +256,7 @@ const ProjectForm: React.FC = () => {
                       <div className="font-display text-2xl font-bold">{rec.primary}</div>
                     </div>
                     
-                    {rec.alternatives.length > 0 && (
+                    {rec.alternatives && rec.alternatives.length > 0 && (
                       <div className="space-y-2">
                         <div className="text-sm font-medium text-foreground/70">Alternatives:</div>
                         <div className="flex flex-wrap gap-2">
@@ -204,9 +276,7 @@ const ProjectForm: React.FC = () => {
             </div>
           </div>
         ) : (
-          // Form view
           <form onSubmit={handleSubmit} className="space-y-8 animate-fade-in">
-            {/* Basic project info */}
             <div className="space-y-4">
               <h3 className="text-xl font-semibold">Project Information</h3>
               
@@ -235,7 +305,6 @@ const ProjectForm: React.FC = () => {
               </div>
             </div>
             
-            {/* Project type */}
             <div className="space-y-4">
               <h3 className="text-xl font-semibold">Project Type</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -271,9 +340,7 @@ const ProjectForm: React.FC = () => {
               </div>
             </div>
             
-            {/* Team and constraints */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Team size */}
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold">Team Size</h3>
                 <RadioGroup 
@@ -290,7 +357,6 @@ const ProjectForm: React.FC = () => {
                 </RadioGroup>
               </div>
               
-              {/* Budget */}
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold">Budget & Resources</h3>
                 <RadioGroup 
@@ -307,7 +373,6 @@ const ProjectForm: React.FC = () => {
                 </RadioGroup>
               </div>
               
-              {/* Time frame */}
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold">Development Timeframe</h3>
                 <RadioGroup 
@@ -324,7 +389,6 @@ const ProjectForm: React.FC = () => {
                 </RadioGroup>
               </div>
               
-              {/* Additional preferences */}
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold">Additional Preferences</h3>
                 <div className="space-y-4">
@@ -388,7 +452,6 @@ const ProjectForm: React.FC = () => {
               </div>
             </div>
             
-            {/* Submit */}
             <div className="flex justify-center pt-4">
               <Button 
                 type="submit" 
@@ -407,7 +470,7 @@ const ProjectForm: React.FC = () => {
                 ) : (
                   <>
                     <Sparkles className="mr-2 h-4 w-4" />
-                    Get Recommendations
+                    Get AI Recommendations
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </>
                 )}
@@ -416,6 +479,37 @@ const ProjectForm: React.FC = () => {
           </form>
         )}
       </div>
+      
+      <Dialog open={showApiKeyModal} onOpenChange={setShowApiKeyModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>OpenAI API Key</DialogTitle>
+            <DialogDescription>
+              Enter your OpenAI API key to enable AI-powered recommendations.
+              Your key is stored only in your browser's local storage.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="api-key">API Key</Label>
+              <Input
+                id="api-key"
+                type="password"
+                placeholder="sk-..."
+                value={tempApiKey}
+                onChange={(e) => setTempApiKey(e.target.value)}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              You can get your API key from the <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">OpenAI Dashboard</a>.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApiKeyModal(false)}>Cancel</Button>
+            <Button onClick={saveApiKey}>Save API Key</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
